@@ -18,6 +18,7 @@ import {
   Sun
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { NotificationSettings } from "@/components/NotificationSettings";
 
 export const Profile = () => {
   const [savingsTarget, setSavingsTarget] = useState(5000000);
@@ -90,41 +91,7 @@ export const Profile = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-sm font-medium">Pengingat Harian</p>
-              <p className="text-xs text-muted-foreground">
-                Ingatkan untuk mencatat transaksi setiap hari
-              </p>
-            </div>
-            <Switch
-              checked={dailyReminder}
-              onCheckedChange={setDailyReminder}
-            />
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-sm font-medium">Peringatan Budget</p>
-              <p className="text-xs text-muted-foreground">
-                Peringatan ketika pengeluaran mendekati batas
-              </p>
-            </div>
-            <Switch
-              checked={budgetAlert}
-              onCheckedChange={setBudgetAlert}
-            />
-          </div>
-
-          <div className="p-3 bg-muted/50 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <Smartphone className="h-4 w-4 text-muted-foreground" />
-              <p className="text-sm font-medium">Notifikasi Lokal</p>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              💡 Placeholder: Integrasi dengan local notification system untuk pengingat offline
-            </p>
-          </div>
+          <NotificationSettings />
         </CardContent>
       </Card>
 
