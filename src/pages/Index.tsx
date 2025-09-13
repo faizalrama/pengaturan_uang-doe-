@@ -5,21 +5,30 @@ import { RecentTransactions } from "@/components/RecentTransactions";
 import { ExpenseChart } from "@/components/ExpenseChart";
 import { TrendChart } from "@/components/TrendChart";
 import { BottomNavigation } from "@/components/BottomNavigation";
+import { AddTransaction } from "@/pages/AddTransaction";
+import { Reports } from "@/pages/Reports";
+import { Profile } from "@/pages/Profile";
+import { useTransactions } from "@/hooks/useTransactions";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const { getTransactionStats } = useTransactions();
+  const stats = getTransactionStats();
 
-  // Sample data
+  // Calculate monthly change (mock calculation)
+  const monthlyChange = stats.income - stats.expense;
+  const monthlyChangePercent = stats.income > 0 ? ((monthlyChange / stats.income) * 100) : 0;
+
   const balanceData = {
-    balance: 15750000,
-    monthlyChange: 2250000,
-    monthlyChangePercent: 16.7,
+    balance: stats.balance,
+    monthlyChange,
+    monthlyChangePercent,
   };
 
   const quickStatsData = {
-    income: 8500000,
-    expense: 6250000,
-    savings: 2250000,
+    income: stats.income,
+    expense: stats.expense,
+    savings: stats.savings,
   };
 
   const recentTransactions = [
@@ -106,26 +115,11 @@ const Index = () => {
           </div>
         );
       case 'add':
-        return (
-          <div className="pt-8 pb-20 text-center">
-            <h1 className="text-2xl font-bold mb-4">Tambah Transaksi</h1>
-            <p className="text-muted-foreground">Fitur tambah transaksi akan segera hadir!</p>
-          </div>
-        );
+        return <AddTransaction />;
       case 'reports':
-        return (
-          <div className="pt-8 pb-20 text-center">
-            <h1 className="text-2xl font-bold mb-4">Laporan</h1>
-            <p className="text-muted-foreground">Fitur laporan akan segera hadir!</p>
-          </div>
-        );
+        return <Reports />;
       case 'profile':
-        return (
-          <div className="pt-8 pb-20 text-center">
-            <h1 className="text-2xl font-bold mb-4">Profil & Pengaturan</h1>
-            <p className="text-muted-foreground">Fitur profil akan segera hadir!</p>
-          </div>
-        );
+        return <Profile />;
       default:
         return null;
     }
