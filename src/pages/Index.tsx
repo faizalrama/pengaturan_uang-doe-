@@ -12,10 +12,10 @@ import { useTransactions } from "@/hooks/useTransactions";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const { getTransactionStats } = useTransactions();
-  const stats = getTransactionStats();
+  const { transactions, stats } = useTransactions();
 
-  // Calculate monthly change (mock calculation)
+  // This calculation should ideally be based on a specific period (e.g., this month)
+  // For now, it reflects all-time stats.
   const monthlyChange = stats.income - stats.expense;
   const monthlyChangePercent = stats.income > 0 ? ((monthlyChange / stats.income) * 100) : 0;
 
@@ -31,61 +31,54 @@ const Index = () => {
     savings: stats.savings,
   };
 
-  const recentTransactions = [
-    {
-      id: '1',
-      title: 'Belanja Groceries',
-      category: 'Makanan',
-      amount: -350000,
-      type: 'expense' as const,
-      date: '2024-01-15',
-      icon: 'food',
-    },
-    {
-      id: '2',
-      title: 'Gaji Bulanan',
-      category: 'Gaji',
-      amount: 8500000,
-      type: 'income' as const,
-      date: '2024-01-01',
-      icon: 'other',
-    },
-    {
-      id: '3',
-      title: 'Bensin Motor',
-      category: 'Transport',
-      amount: -75000,
-      type: 'expense' as const,
-      date: '2024-01-14',
-      icon: 'transport',
-    },
-    {
-      id: '4',
-      title: 'Coffee Shop',
-      category: 'F&B',
-      amount: -45000,
-      type: 'expense' as const,
-      date: '2024-01-13',
-      icon: 'coffee',
-    },
+  const categoryColors = [
+    'hsl(var(--destructive))',
+    'hsl(var(--warning))',
+    'hsl(var(--accent))',
+    'hsl(var(--primary))',
+    'hsl(var(--success))',
   ];
 
-  const expenseData = [
-    { category: 'Makanan', amount: 2100000, color: 'hsl(var(--destructive))' },
-    { category: 'Transport', amount: 850000, color: 'hsl(var(--warning))' },
-    { category: 'Hiburan', amount: 650000, color: 'hsl(var(--accent))' },
-    { category: 'Belanja', amount: 1200000, color: 'hsl(var(--primary))' },
-    { category: 'Tagihan', amount: 1450000, color: 'hsl(var(--success))' },
-  ];
+  const expenseData = useMemo(() => {
+    const expenseByCategory = transactions
+      .filter(t => t.type === 'expense')
+      .reduce((acc, transaction) => {
+        acc[transaction.category] = (acc[transaction.category] || 0) + transaction.amount;
+        return acc;
+      }, {} as Record<string, number>);
 
-  const trendData = [
-    { month: 'Agt', balance: 12500000, income: 8000000, expense: 5500000 },
-    { month: 'Sep', balance: 13200000, income: 8200000, expense: 5800000 },
-    { month: 'Okt', balance: 14100000, income: 8300000, expense: 6000000 },
-    { month: 'Nov', balance: 14800000, income: 8400000, expense: 6200000 },
-    { month: 'Des', balance: 15300000, income: 8500000, expense: 6100000 },
-    { month: 'Jan', balance: 15750000, income: 8500000, expense: 6250000 },
-  ];
+    return Object.entries(expenseByCategory)
+      .map(([category, amount], index) => ({
+        category,
+        amount,
+        color: categoryColors[index % categoryColors.length],
+      }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [transactions]);
+
+  const trendData = useMemo(() => {
+    const monthlyData: Record<string, { income: number; expense: number }> = {};
+
+    transactions.forEach(t => {
+      const month = new Date(t.date).toLocaleString('default', { month: 'short' });
+      if (!monthlyData[month]) {
+        monthlyData[month] = { income: 0, expense: 0 };
+      }
+      if (t.type === 'income') monthlyData[month].income += t.amount;
+      if (t.type === 'expense') monthlyData[month].expense += t.amount;
+    });
+
+    let cumulativeBalance = 0;
+    return Object.entries(monthlyData).map(([month, data]) => {
+        cumulativeBalance += data.income - data.expense;
+        return {
+            month,
+            balance: cumulativeBalance,
+            income: data.income,
+            expense: data.expense,
+        }
+    }).slice(-6); // Show last 6 months
+  }, [transactions]);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -111,7 +104,7 @@ const Index = () => {
             </div>
 
             {/* Recent Transactions */}
-            <RecentTransactions transactions={recentTransactions} />
+            <RecentTransactions transactions={transactions} />
           </div>
         );
       case 'add':

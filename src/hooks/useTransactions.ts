@@ -1,14 +1,44 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Transaction, TransactionFormData } from '@/types/transaction';
 import { selectQuery, executeQuery } from '@/lib/database';
-import { checkBudgetThreshold } from '@/lib/budgetHelper';
+import { useDB } from '@/contexts/DBContext';
+
+export interface TransactionStats {
+  income: number;
+  expense: number;
+  savings: number;
+  balance: number;
+}
 
 export const useTransactions = () => {
+  const { isInitialized } = useDB();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+
+  // This is the core fix: The stats object is now a piece of state itself.
+  const [stats, setStats] = useState<TransactionStats>({ income: 0, expense: 0, savings: 0, balance: 0 });
+
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const fetchTransactions = useCallback(async () => {
+  // Recalculate stats whenever transactions change
+  useEffect(() => {
+    const income = transactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+    const expense = transactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+    const savings = transactions
+      .filter(t => t.type === 'savings')
+      .reduce((sum, t) => sum + t.amount, 0);
+    const balance = income - expense;
+
+    setStats({ income, expense, savings, balance });
+  }, [transactions]);
+
+
+  const fetchTransactions = useCallback(() => {
+    if (!isInitialized) return;
     setIsLoading(true);
     try {
       const data = selectQuery<Transaction>('SELECT * FROM transactions ORDER BY date DESC, createdAt DESC');
@@ -20,21 +50,22 @@ export const useTransactions = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isInitialized]);
 
   useEffect(() => {
     fetchTransactions();
   }, [fetchTransactions]);
 
-  const addTransaction = useCallback(async (data: TransactionFormData): Promise<Transaction> => {
-    setIsLoading(true);
+  const addTransaction = useCallback((data: TransactionFormData): Transaction => {
+    if (!isInitialized) throw new Error("Database not initialized");
+
     const newId = crypto.randomUUID();
     const now = new Date().toISOString();
     
     const newTransaction: Transaction = {
       id: newId,
       ...data,
-      date: data.date.toISOString().split('T')[0], // Store date as YYYY-MM-DD string
+      date: data.date.toISOString().split('T')[0],
       notes: data.notes || '',
       createdAt: now,
       updatedAt: now,
@@ -45,42 +76,26 @@ export const useTransactions = () => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
     
-    try {
-      executeQuery(query, [
-        newTransaction.id,
-        newTransaction.type,
-        newTransaction.category,
-        newTransaction.amount,
-        newTransaction.notes,
-        newTransaction.date,
-        newTransaction.createdAt,
-        newTransaction.updatedAt,
-      ]);
-      await fetchTransactions(); // Refetch to update the list
+    executeQuery(query, [
+      newTransaction.id,
+      newTransaction.type,
+      newTransaction.category,
+      newTransaction.amount,
+      newTransaction.notes,
+      newTransaction.date,
+      newTransaction.createdAt,
+      newTransaction.updatedAt,
+    ]);
 
-      // After adding a new expense, check if it triggers a budget alert
-      if (newTransaction.type === 'expense') {
-        // Run this check asynchronously and don't block the UI
-        checkBudgetThreshold().catch(e => console.error("Error checking budget threshold:", e));
-      }
+    fetchTransactions(); // Refetch to update the list
+    return newTransaction;
+  }, [isInitialized, fetchTransactions]);
 
-      return newTransaction;
-    } catch (err) {
-      console.error('Failed to add transaction:', err);
-      setError(err as Error);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [fetchTransactions]);
-
-  const updateTransaction = useCallback(async (id: string, data: Partial<TransactionFormData>): Promise<Transaction | null> => {
-    setIsLoading(true);
-    const now = new Date().toISOString();
+  const updateTransaction = useCallback((id: string, data: Partial<TransactionFormData>): Transaction | null => {
+    if (!isInitialized) throw new Error("Database not initialized");
 
     const existingTransaction = transactions.find(t => t.id === id);
     if (!existingTransaction) {
-      setIsLoading(false);
       throw new Error("Transaction not found");
     }
 
@@ -88,7 +103,8 @@ export const useTransactions = () => {
       ...existingTransaction,
       ...data,
       date: data.date ? data.date.toISOString().split('T')[0] : existingTransaction.date,
-      updatedAt: now,
+      notes: data.notes || existingTransaction.notes,
+      updatedAt: new Date().toISOString(),
     };
     
     const query = `
@@ -97,73 +113,35 @@ export const useTransactions = () => {
       WHERE id = ?
     `;
 
-    try {
-      executeQuery(query, [
-        updatedData.type,
-        updatedData.category,
-        updatedData.amount,
-        updatedData.notes || '',
-        updatedData.date,
-        updatedData.updatedAt,
-        id,
-      ]);
-      await fetchTransactions(); // Refetch to update the list
-      return updatedData;
-    } catch (err) {
-      console.error('Failed to update transaction:', err);
-      setError(err as Error);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [transactions, fetchTransactions]);
+    executeQuery(query, [
+      updatedData.type,
+      updatedData.category,
+      updatedData.amount,
+      updatedData.notes,
+      updatedData.date,
+      updatedData.updatedAt,
+      id,
+    ]);
 
-  const deleteTransaction = useCallback(async (id: string): Promise<boolean> => {
-    setIsLoading(true);
+    fetchTransactions(); // Refetch to update the list
+    return updatedData;
+  }, [isInitialized, transactions, fetchTransactions]);
+
+  const deleteTransaction = useCallback((id: string): boolean => {
+    if (!isInitialized) throw new Error("Database not initialized");
     const query = 'DELETE FROM transactions WHERE id = ?';
-    
-    try {
-      executeQuery(query, [id]);
-      await fetchTransactions(); // Refetch to update the list
-      return true;
-    } catch (err) {
-      console.error('Failed to delete transaction:', err);
-      setError(err as Error);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [fetchTransactions]);
-
-  const getTransactionStats = useCallback(() => {
-    // This function can now also be implemented with SQL for better performance,
-    // but for now, we'll keep it operating on the client-side state
-    // to avoid re-querying on every render.
-    const income = transactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
-    
-    const expense = transactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
-    
-    const savings = transactions
-      .filter(t => t.type === 'savings')
-      .reduce((sum, t) => sum + t.amount, 0);
-    
-    const balance = income - expense - savings; // Corrected balance calculation
-    
-    return { income, expense, savings, balance };
-  }, [transactions]);
+    executeQuery(query, [id]);
+    fetchTransactions(); // Refetch to update the list
+    return true;
+  }, [isInitialized, fetchTransactions]);
 
   return {
     transactions,
+    stats, // Return the state object directly
     isLoading,
     error,
-    fetchTransactions,
     addTransaction,
     updateTransaction,
     deleteTransaction,
-    getTransactionStats,
   };
 };

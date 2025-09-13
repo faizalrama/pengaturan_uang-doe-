@@ -12,12 +12,13 @@ const saveDatabase = () => {
   if (db) {
     const data = db.export();
     localStorage.setItem(DB_STORAGE_KEY, JSON.stringify(Array.from(data)));
+    console.log('Database saved to localStorage.');
   }
 };
 
 // Main function to initialize the database
-export const initDB = async (): Promise<SQLiteDB> => {
-  if (db) return db;
+export const initDB = async (): Promise<void> => {
+  if (db) return;
 
   try {
     const SQL = await initSqlJs({
@@ -33,11 +34,9 @@ export const initDB = async (): Promise<SQLiteDB> => {
     } else {
       console.log('Creating a new database...');
       db = new SQL.Database();
-      // Create tables if this is a new database
       createTables(db);
     }
 
-    return db;
   } catch (error) {
     console.error('Error initializing database:', error);
     throw error;
@@ -88,6 +87,3 @@ export const selectQuery = <T>(query: string, params?: (string | number)[]): T[]
 
   return results;
 };
-
-// Initialize the DB as soon as the app loads
-initDB().catch(err => console.error("DB Initialization failed on load", err));

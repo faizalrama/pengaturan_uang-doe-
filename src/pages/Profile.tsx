@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,36 +10,77 @@ import {
   Target, 
   Bell, 
   Palette, 
-  Globe, 
-  Smartphone, 
   Database,
-  Settings,
   Moon,
-  Sun
+  Sun,
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { NotificationSettings } from "@/components/NotificationSettings";
+import { saveSettings, loadSettings, applyDarkMode, AppSettings } from "@/lib/settings";
+import { useTransactions } from "@/hooks/useTransactions";
 
 export const Profile = () => {
-  const [savingsTarget, setSavingsTarget] = useState(5000000);
-  const [dailyReminder, setDailyReminder] = useState(true);
-  const [budgetAlert, setBudgetAlert] = useState(true);
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [language, setLanguage] = useState('id');
+  const [settings, setSettings] = useState<Partial<AppSettings>>({});
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const { transactions } = useTransactions();
+
+  // Load settings on component mount
+  useEffect(() => {
+    const fetchSettings = async () => {
+      setIsLoading(true);
+      const loadedSettings = await loadSettings();
+      setSettings(loadedSettings);
+      applyDarkMode(loadedSettings.isDarkMode);
+      setIsLoading(false);
+    };
+    fetchSettings();
+  }, []);
+
+  const handleSettingChange = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
+    setSettings(prev => ({ ...prev, [key]: value }));
+    if (key === 'isDarkMode') {
+      applyDarkMode(value as boolean);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    if (settings.savingsTarget === undefined || settings.language === undefined || settings.isDarkMode === undefined) {
+      toast({ title: "Error", description: "Settings not loaded yet.", variant: "destructive" });
+      return;
+    }
+    try {
+      await saveSettings(settings as AppSettings);
+      toast({ title: "Pengaturan berhasil disimpan" });
+    } catch (error) {
+      toast({ title: "Gagal menyimpan pengaturan", variant: "destructive" });
+    }
+  };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount);
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
   };
 
-  const handleSaveSettings = () => {
-    // Placeholder for saving settings to local storage or database
-    toast({ title: "Pengaturan berhasil disimpan" });
-  };
+  const savingsThisMonth = useMemo(() => {
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    // Adjust for timezone differences by comparing dates as strings
+    const firstDayString = `${firstDay.getFullYear()}-${String(firstDay.getMonth() + 1).padStart(2, '0')}-01`;
+
+    return transactions
+      .filter(t => t.type === 'savings' && t.date >= firstDayString)
+      .reduce((sum, t) => sum + t.amount, 0);
+  }, [transactions]);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-20">
@@ -50,33 +91,26 @@ export const Profile = () => {
 
       {/* Savings Target */}
       <Card className="bg-gradient-card border-0 shadow-soft">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5 text-primary" />
-            Target Tabungan Bulanan
-          </CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-primary" />Target Tabungan Bulanan</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="savings-target">Target Bulanan (Rp)</Label>
             <Input
               id="savings-target"
               type="number"
-              value={savingsTarget}
-              onChange={(e) => setSavingsTarget(Number(e.target.value))}
+              value={settings.savingsTarget || 0}
+              onChange={(e) => handleSettingChange('savingsTarget', Number(e.target.value))}
               placeholder="Masukkan target tabungan"
             />
-            <p className="text-sm text-muted-foreground">
-              Target saat ini: {formatCurrency(savingsTarget)}
-            </p>
+            <p className="text-sm text-muted-foreground">Target saat ini: {formatCurrency(settings.savingsTarget || 0)}</p>
           </div>
           <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
             <div>
               <p className="text-sm font-medium">Progress Bulan Ini</p>
-              <p className="text-xs text-muted-foreground">2.250.000 / {formatCurrency(savingsTarget)}</p>
+              <p className="text-xs text-muted-foreground">{formatCurrency(savingsThisMonth)} / {formatCurrency(settings.savingsTarget || 0)}</p>
             </div>
             <Badge variant="outline" className="bg-accent/10 text-accent border-accent/20">
-              {((2250000 / savingsTarget) * 100).toFixed(0)}%
+              {((savingsThisMonth / (settings.savingsTarget || 1)) * 100).toFixed(0)}%
             </Badge>
           </div>
         </CardContent>
@@ -84,52 +118,35 @@ export const Profile = () => {
 
       {/* Notification Settings */}
       <Card className="bg-gradient-card border-0 shadow-soft">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5 text-primary" />
-            Pengaturan Notifikasi
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <NotificationSettings />
-        </CardContent>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Bell className="h-5 w-5 text-primary" />Pengaturan Notifikasi</CardTitle></CardHeader>
+        <CardContent className="space-y-4"><p className="text-center text-muted-foreground py-4">Pengaturan notifikasi akan tersedia di versi aplikasi native.</p></CardContent>
       </Card>
 
       {/* Appearance Settings */}
       <Card className="bg-gradient-card border-0 shadow-soft">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Palette className="h-5 w-5 text-primary" />
-            Tampilan
-          </CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Palette className="h-5 w-5 text-primary" />Tampilan</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <p className="text-sm font-medium">Mode Gelap</p>
-              <p className="text-xs text-muted-foreground">
-                Aktifkan tema gelap untuk kenyamanan mata
-              </p>
+              <p className="text-xs text-muted-foreground">Aktifkan tema gelap untuk kenyamanan mata</p>
             </div>
             <div className="flex items-center gap-2">
               <Sun className="h-4 w-4 text-muted-foreground" />
               <Switch
-                checked={isDarkMode}
-                onCheckedChange={setIsDarkMode}
+                checked={settings.isDarkMode || false}
+                onCheckedChange={(checked) => handleSettingChange('isDarkMode', checked)}
               />
               <Moon className="h-4 w-4 text-muted-foreground" />
             </div>
           </div>
-
           <div className="space-y-2">
             <Label>Bahasa</Label>
-            <Select value={language} onValueChange={setLanguage}>
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih bahasa" />
-              </SelectTrigger>
+            <Select value={settings.language || 'id'} onValueChange={(value) => handleSettingChange('language', value as 'id' | 'en')}>
+              <SelectTrigger><SelectValue placeholder="Pilih bahasa" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="id">🇮🇩 Bahasa Indonesia</SelectItem>
-                <SelectItem value="en">🇺🇸 English</SelectItem>
+                <SelectItem value="en" disabled>🇺🇸 English (coming soon)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -138,73 +155,15 @@ export const Profile = () => {
 
       {/* Data Management */}
       <Card className="bg-gradient-card border-0 shadow-soft">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Database className="h-5 w-5 text-primary" />
-            Manajemen Data
-          </CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Database className="h-5 w-5 text-primary" />Manajemen Data</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <div className="p-3 bg-muted/50 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <Database className="h-4 w-4 text-muted-foreground" />
-              <p className="text-sm font-medium">Database Lokal</p>
-            </div>
-            <p className="text-xs text-muted-foreground mb-3">
-              💡 Placeholder: Semua data disimpan secara offline menggunakan SQLite/Realm
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" size="sm" disabled>
-                Backup Data
-              </Button>
-              <Button variant="outline" size="sm" disabled>
-                Restore Data
-              </Button>
-            </div>
-          </div>
-
-          <div className="p-3 bg-muted/50 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <Settings className="h-4 w-4 text-muted-foreground" />
-              <p className="text-sm font-medium">Background Tasks</p>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              💡 Placeholder: Sinkronisasi data dan analisis otomatis di background
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* App Information */}
-      <Card className="bg-gradient-card border-0 shadow-soft">
-        <CardHeader>
-          <CardTitle>Informasi Aplikasi</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Versi Aplikasi</span>
-            <Badge variant="outline">1.0.0</Badge>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Database</span>
-            <Badge variant="outline">SQLite (Offline)</Badge>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Total Transaksi</span>
-            <Badge variant="outline">124 transaksi</Badge>
-          </div>
+          <p className="text-xs text-muted-foreground text-center">Fitur backup dan restore akan datang segera.</p>
         </CardContent>
       </Card>
 
       {/* Save Button */}
       <div className="pt-4">
-        <Button 
-          onClick={handleSaveSettings}
-          className="w-full"
-          size="lg"
-        >
-          Simpan Pengaturan
-        </Button>
+        <Button onClick={handleSaveSettings} className="w-full" size="lg">Simpan Pengaturan</Button>
       </div>
     </div>
   );
