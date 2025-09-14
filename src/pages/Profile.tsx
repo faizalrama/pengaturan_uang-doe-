@@ -16,7 +16,6 @@ import {
   Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { NotificationSettings } from "@/components/NotificationSettings";
 import { saveSettings, loadSettings, applyDarkMode, AppSettings } from "@/lib/settings";
 import { useTransactions } from "@/hooks/useTransactions";
 

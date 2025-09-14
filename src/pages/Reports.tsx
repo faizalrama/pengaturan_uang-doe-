@@ -5,8 +5,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis
 import { useTransactions } from "@/hooks/useTransactions";
 
 export const Reports = () => {
-  const { transactions, getTransactionStats } = useTransactions();
-  const stats = getTransactionStats();
+  const { transactions, stats } = useTransactions();
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
