@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { BalanceCard } from "@/components/BalanceCard";
 import { QuickStats } from "@/components/QuickStats";
 import { RecentTransactions } from "@/components/RecentTransactions";

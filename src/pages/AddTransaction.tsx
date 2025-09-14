@@ -202,10 +202,17 @@ export const AddTransaction = () => {
                     <FormLabel>Jumlah (Rp)</FormLabel>
                     <FormControl>
                       <Input 
-                        type="number" 
+                        type="text"
+                        inputMode="decimal"
                         placeholder="0" 
                         {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Allow only numbers by stripping non-digit characters
+                          const sanitizedValue = value.replace(/[^0-9]/g, '');
+                          // Coerce to number to remove leading zeros and update the form state
+                          field.onChange(Number(sanitizedValue));
+                        }}
                       />
                     </FormControl>
                     <FormMessage />
