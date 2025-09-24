@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "962836542894",
+    "project_id": "notifikasi-pencatatan-keuangan",
+    "storage_bucket": "notifikasi-pencatatan-keuangan.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:962836542894:android:518f45aee3684f2f80043f",
+        "android_client_info": {
+          "package_name": "com.doe.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC52pJZFE1B17vWGUFVYe9T1MMhKjkkLWo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
