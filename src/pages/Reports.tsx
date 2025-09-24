@@ -3,6 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, DollarSign, Target } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar } from "recharts";
 import { useTransactions } from "@/hooks/useTransactions";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 
 export const Reports = () => {
   const { transactions, stats } = useTransactions();
@@ -284,6 +286,49 @@ export const Reports = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* All Transactions List */}
+      <Card className="bg-gradient-card border-0 shadow-soft">
+        <CardHeader>
+          <CardTitle>Semua Transaksi</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {transactions.map((transaction) => (
+              <div
+                key={transaction.id}
+                className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+              >
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium">{transaction.notes || transaction.category}</p>
+                    <p className={cn(
+                      "font-semibold",
+                      transaction.type === 'income' && "text-success",
+                      transaction.type === 'expense' && "text-destructive",
+                      transaction.type === 'savings' && "text-accent"
+                    )}>
+                      {transaction.type === 'expense' ? '-' : '+'}{formatCurrency(transaction.amount)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-muted-foreground">{transaction.category}</span>
+                    <span className="text-xs text-muted-foreground">•</span>
+                    <span className="text-xs text-muted-foreground">
+                      {format(new Date(transaction.date), "dd/MM/yyyy")}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {transactions.length === 0 && (
+              <p className="text-center text-muted-foreground py-8">
+                Belum ada transaksi untuk ditampilkan.
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

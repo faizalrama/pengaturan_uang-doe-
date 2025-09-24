@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Edit2, Trash2, Calendar } from "lucide-react";
+import { Plus, Edit2, Trash2, Calendar, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,11 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-export const AddTransaction = () => {
+interface AddTransactionProps {
+  setActiveTab: (tab: 'dashboard' | 'add' | 'reports' | 'profile') => void;
+}
+
+export const AddTransaction = ({ setActiveTab }: AddTransactionProps) => {
   const [selectedType, setSelectedType] = useState<'income' | 'expense' | 'savings'>('expense');
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const { transactions, isLoading, addTransaction, updateTransaction, deleteTransaction } = useTransactions();
@@ -307,8 +311,12 @@ export const AddTransaction = () => {
 
       {/* Recent Transactions */}
       <Card className="bg-gradient-card border-0 shadow-soft">
-        <CardHeader>
+        <CardHeader className="flex-row items-center justify-between">
           <CardTitle>Transaksi Terbaru</CardTitle>
+          <Button variant="ghost" size="sm" className="text-primary -mr-3" onClick={() => setActiveTab('reports')}>
+            Lihat Semua
+            <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">

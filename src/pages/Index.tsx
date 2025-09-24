@@ -108,7 +108,7 @@ const Index = () => {
           </div>
         );
       case 'add':
-        return <AddTransaction />;
+        return <AddTransaction setActiveTab={setActiveTab} />;
       case 'reports':
         return <Reports />;
       case 'profile':
